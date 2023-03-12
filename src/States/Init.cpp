@@ -1,21 +1,10 @@
 #include "Definition.hpp"
 #include "State.hpp"
 
-#include <esp_system.h>
-#include <esp_err.h>
-#include <esp_wifi.h>
-#include <nvs_flash.h>
-#include <driver/gpio.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <EEPROM.h>
-
 namespace
 {       
-    struct domobox::State::StateImpl;
     struct ToggleData
     {
-        domobox::State::StateImpl& _impl;
         gpio_num_t _gpio_to_toggle;
         TickType_t _tick_to_wait;
     };
@@ -35,10 +24,6 @@ namespace
 
 namespace domobox
 {
-    const auto INIT_LED_PINK = GPIO_NUM_17;
-    const auto WIFI_ACQ_BLUE = GPIO_NUM_16;
-    const auto WIFI_DONE_ROUTINE_UP = GPIO_NUM_18;
-
     struct State::StateImpl
     {
         StateImpl();
@@ -46,48 +31,65 @@ namespace domobox
 
         gpio_config_t _io_conf;
         TaskHandle_t  _toggle_init = nullptr;
-        ToggleData    _toggle_init_data{*this, INIT_LED_PINK, 200 / portTICK_PERIOD_MS};
-        TaskHandle_t  _toggle_wifi_acq = nullptr;
-        ToggleData    _toggle_wifi_acq_data{*this, WIFI_ACQ_BLUE, 400 / portTICK_PERIOD_MS};
-        TaskHandle_t  _toggle_wifi_done = nullptr;
-        ToggleData    _toggle_wifi_done_data{*this, WIFI_DONE_ROUTINE_UP, 600 / portTICK_PERIOD_MS};
+        ToggleData    _toggle_init_data{INIT_LED_PINK, 200 / portTICK_PERIOD_MS};
     };
 
     State::StateImpl::StateImpl()
     {
         _io_conf.intr_type = GPIO_INTR_DISABLE;
         _io_conf.mode = GPIO_MODE_OUTPUT;
-        _io_conf.pin_bit_mask = (1 << INIT_LED_PINK) | (1 << WIFI_ACQ_BLUE) | (1 << WIFI_DONE_ROUTINE_UP);
+        _io_conf.pin_bit_mask = (1 << INIT_LED_PINK) | (1 << WIFI_ACQ_BLUE) | (1 << WIFI_DONE_ROUTINE_UP) | (1 << ERROR_RED);
         gpio_config(&_io_conf);
 
         xTaskCreate(toggle_task, "blink_init", 1024, &_toggle_init_data , 1, &_toggle_init);
-        xTaskCreate(toggle_task, "blink_wifi_acq", 1024, &_toggle_wifi_acq_data, 1, &_toggle_wifi_acq);
-        xTaskCreate(toggle_task, "blink_wifi_done", 1024, &_toggle_wifi_done_data, 1, &_toggle_wifi_done);
     }
 
     State::StateImpl::~StateImpl()
     {
         if(_toggle_init) vTaskDelete(_toggle_init);
-        if(_toggle_wifi_acq) vTaskDelete(_toggle_wifi_acq);
-        if(_toggle_wifi_done) vTaskDelete(_toggle_wifi_done);
-    }
-    
-    const char* State::name()
-    {
-        return "Initialisation";
     }
 
-    Error State::run()
+    namespace init
     {
-        for(;;)
+        const char* name(State& state)
         {
-            
+            return "Initialisation";
         }
-        return Error::no_error;
-    }
 
-    std::shared_ptr<State::StateImpl> make_init()
+        State run(State& state)
+        {
+            for(;;)
+            {
+                // // First we init nvs flash partition
+                // auto err = nvs_flash_init();
+                // if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+                //     // NVS partition was truncated and needs to be erased
+                //     // Retry nvs_flash_init
+                //     ESP_ERROR_CHECK(nvs_flash_erase());
+                //     err = nvs_flash_init();
+                // }
+                // ESP_ERROR_CHECK(err);
+
+
+                // err = nvs_open("wifi_conf", NVS_READWRITE, &_context._nvs_handle);
+                // if (err != ESP_OK) {
+                //     printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+
+                // } else {
+                //     printf("Done\n");
+                // }
+                vTaskDelay(10000 / portTICK_PERIOD_MS);
+                return make_error(DOMOBOX_ERROR_MESSAGE("Test error state", test > expected), 6000, 1000);
+            }
+        }
+    }
+        
+    State make_init()
     {
-        return std::make_shared<State::StateImpl>();
+        return State{
+            .run = &init::run,
+            .name = &init::name,
+            .pimpl = std::make_shared<State::StateImpl>(),
+        };
     }
 }

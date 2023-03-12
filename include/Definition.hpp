@@ -7,24 +7,35 @@
 #ifndef DEFINITION_HEADER
 #define DEFINITION_HEADER
 #include <esp_err.h>
+#include <esp_system.h>
+#include <esp_err.h>
+#include <esp_wifi.h>
+#include <nvs_flash.h>
+#include <driver/gpio.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <string>
 
-/*
-    We check for error on ESP function. If wrong we move to Error state and print message until reset
+#define DOMOBOX_ESP_ERROR_MESSAGE(function_name, error) domobox_esp_message_preparation(__err_rc, __FILE__, __LINE__, __PRETTY_FUNCTION__, #function_name)
+#define DOMOBOX_ERROR_MESSAGE(message_assert, expression) domobox_message_preparation(message_assert, __FILE__, __LINE__, __PRETTY_FUNCTION__, #expression)
+#define DOMOBOX_VALUE_CHECK(expression_to_check, str_error, action_to_do)             \
+{                                                                                     \
+    if(!(expression_to_check))                                                        \
+    {                                                                                 \
+        printf("%s", DOMOBOX_ERROR_MESSAGE(str_error, expression_to_check).c_str());  \
+        action_to_do;                                                                 \
+    }                                                                                 \
+}                                                                                     \
 
-#define DOMOBOX_FSM_CHECK(function){                                                                                                                           \
-    esp_err_t __err_rc = (function);                                                                                                                           \
-    if (__err_rc != ESP_OK) {                                                                                                                                  \
-        return std::unique_ptr<S_Error>(new S_Error(std::move(_error_message_preparation(__err_rc, __FILE__, __LINE__, __PRETTY_FUNCTION__, #function))));     \
-    }                                                                                                                                                          \
-}
-#define DOMOBOX_FSM_ASSERT(assert, message_assert){                                                                                                            \
-    if(!(assert)){                                                                                                                                             \
-        return std::unique_ptr<S_Error>(new S_Error(std::move(_assert_message_preparation(message_assert, __FILE__, __LINE__, __PRETTY_FUNCTION__, #assert))));\
-    }                                                                                                                                                          \
-}       
-*/
 namespace domobox
 {
+    const auto INIT_LED_PINK        = GPIO_NUM_17;
+    const auto WIFI_ACQ_BLUE        = GPIO_NUM_16;
+    const auto WIFI_DONE_ROUTINE_UP = GPIO_NUM_18;
+    const auto ERROR_RED            = GPIO_NUM_15;
+
+    std::string domobox_esp_message_preparation(esp_err_t rc, const char *file, int line, const char *function, const char *expression);
+    std::string domobox_message_preparation(const char* message_assert, const char *file, int line, const char *function, const char *expression);
 
     enum class Error: uint8_t 
     {
@@ -32,28 +43,6 @@ namespace domobox
         fake_error = 0x01,
     };
 }
-/*
-std::string _error_message_preparation(esp_err_t rc, const char *file, int line, const char *function, const char *expression);
-std::string _assert_message_preparation(const char* message_assert, const char *file, int line, const char *function, const char *expression);
-
-class DomoboxConfiguration{
-    public:
-        static DomoboxConfiguration& Get();
-        // All the configuration of domobox is stored in this singleton:
-        bool has_credential = false;
-        bool is_connected = false;
-        // Wifi configuration
-        bool bssid_set = false;
-        char* ssid[33] = {0};
-        char* password[65] = {0};
-        char* bssid[6] = {0};
-        // Error handling
-        bool is_error = false;
-        std::string error;
-    private:
-        static DomoboxConfiguration* instance;
-};
-*/
 
 #endif
 
